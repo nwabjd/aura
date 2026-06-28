@@ -3,72 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pasha AI Mobile</title>
+    <title>JARVIS Mobile</title>
     <style>
-        body { 
-            background: #000; 
-            color: #00ffcc; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100vh; 
-            margin: 0;
-        }
-        #chat { 
-            flex: 1; 
-            overflow-y: auto; 
-            padding: 20px; 
-            border-bottom: 1px solid #333;
-        }
-        #input-area { 
-            padding: 20px; 
-            display: flex; 
-        }
-        input { 
-            flex: 1; 
-            background: #111; 
-            color: #fff; 
-            border: 1px solid #00ffcc; 
-            padding: 15px; 
-            border-radius: 5px;
-        }
+        body { background: #0a0a0a; color: #00ffcc; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 12px; border-radius: 15px; max-width: 85%; }
+        .user { align-self: flex-end; background: #1a1a1a; }
+        .ai { align-self: flex-start; background: #00332d; }
+        #controls { padding: 20px; display: flex; gap: 10px; align-items: center; }
+        input { flex: 1; background: #111; color: #fff; border: 1px solid #00ffcc; padding: 15px; border-radius: 25px; }
+        button { background: #00ffcc; border: none; padding: 15px 20px; border-radius: 50%; font-weight: bold; cursor: pointer; }
+        button.recording { background: #ff4444; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
-    <div id="chat">
-        <p>JARVIS: System online. How may I assist you today?</p>
-    </div>
-    <div id="input-area">
-        <input type="text" id="userInput" placeholder="Talk to JARVIS...">
+    <div id="chat"></div>
+    <div id="controls">
+        <input type="text" id="userInput" placeholder="Ask JARVIS anything...">
+        <button id="micBtn">🎤</button>
     </div>
 
     <script>
-        // Your live tunnel address
-        const API_URL = "https://jockey-washstand-excluding.ngrok-free.dev"; 
+        const API_URL = "https://jockey-washstand-excluding.ngrok-free.dev";
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('userInput');
+        const micBtn = document.getElementById('micBtn');
 
-        document.getElementById('userInput').addEventListener('keypress', async (e) => {
-            if (e.key === 'Enter') {
-                const text = e.target.value;
-                if (!text) return;
-                
-                const chatBox = document.getElementById('chat');
-                chatBox.innerHTML += `<p><b>You:</b> ${text}</p>`;
-                e.target.value = '';
+        // Web Speech API Setup
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.interimResults = true;
 
-                try {
-                    const res = await fetch(`${API_URL}/api/chat`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({text: text})
-                    });
-                    const data = await res.json();
-                    chatBox.innerHTML += `<p><b>JARVIS:</b> ${data.reply}</p>`;
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                } catch (error) {
-                    chatBox.innerHTML += `<p style="color:red;">Error: Could not connect to JARVIS.</p>`;
-                }
-            }
-        });
+        micBtn.onclick = () => {
+            micBtn.classList.add('recording');
+            recognition.start();
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            input.value = transcript;
+            if(event.results[0].isFinal) sendToServer(transcript);
+        };
+
+        recognition.onend = () => micBtn.classList.remove('recording');
+
+        async function sendToServer(text) {
+            chat.innerHTML += `<p class="msg user">${text}</p>`;
+            const res = await fetch(`${API_URL}/api/chat`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text})
+            });
+            const data = await res.json();
+            chat.innerHTML += `<p class="msg ai">JARVIS: ${data.reply}</p>`;
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        input.onkeypress = (e) => { if(e.key === 'Enter') sendToServer(input.value); };
     </script>
 </body>
 </html>
