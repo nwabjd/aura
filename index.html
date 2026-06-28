@@ -5,22 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JARVIS Mobile</title>
     <style>
-        body { background: #0a0a0a; color: #00ffcc; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+        body { background: #0a0a0a; color: #00ffcc; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; }
         #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
         .msg { padding: 12px; border-radius: 15px; max-width: 85%; }
         .user { align-self: flex-end; background: #1a1a1a; }
         .ai { align-self: flex-start; background: #00332d; }
         #controls { padding: 20px; display: flex; gap: 10px; align-items: center; }
         input { flex: 1; background: #111; color: #fff; border: 1px solid #00ffcc; padding: 15px; border-radius: 25px; }
-        button { background: #00ffcc; border: none; padding: 15px 20px; border-radius: 50%; font-weight: bold; cursor: pointer; }
+        button { background: #00ffcc; border: none; padding: 15px 20px; border-radius: 50%; cursor: pointer; }
         button.recording { background: #ff4444; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
     <div id="chat"></div>
     <div id="controls">
-        <input type="text" id="userInput" placeholder="Ask JARVIS anything...">
+        <input type="text" id="userInput" placeholder="Talk to JARVIS...">
         <button id="micBtn">🎤</button>
     </div>
 
@@ -30,10 +29,10 @@
         const input = document.getElementById('userInput');
         const micBtn = document.getElementById('micBtn');
 
-        // Web Speech API Setup
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
-        recognition.interimResults = true;
+        recognition.continuous = false; // Stop after one phrase
+        recognition.lang = 'en-US';
 
         micBtn.onclick = () => {
             micBtn.classList.add('recording');
@@ -43,24 +42,28 @@
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
             input.value = transcript;
-            if(event.results[0].isFinal) sendToServer(transcript);
         };
 
-        recognition.onend = () => micBtn.classList.remove('recording');
+        recognition.onend = () => {
+            micBtn.classList.remove('recording');
+            if (input.value) sendToServer(input.value);
+        };
 
         async function sendToServer(text) {
-            chat.innerHTML += `<p class="msg user">${text}</p>`;
-            const res = await fetch(`${API_URL}/api/chat`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({text})
-            });
-            const data = await res.json();
-            chat.innerHTML += `<p class="msg ai">JARVIS: ${data.reply}</p>`;
-            chat.scrollTop = chat.scrollHeight;
+            chat.innerHTML += `<p class="msg user">You: ${text}</p>`;
+            try {
+                const res = await fetch(`${API_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: text})
+                });
+                const data = await res.json();
+                chat.innerHTML += `<p class="msg ai">JARVIS: ${data.reply}</p>`;
+                chat.scrollTop = chat.scrollHeight;
+            } catch (err) {
+                chat.innerHTML += `<p class="msg ai" style="color:red;">Error: Server unreachable.</p>`;
+            }
         }
-
-        input.onkeypress = (e) => { if(e.key === 'Enter') sendToServer(input.value); };
     </script>
 </body>
 </html>
